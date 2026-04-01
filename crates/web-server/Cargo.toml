@@ -1,0 +1,7 @@
+[package]
+name = "mediamtx-manager-web"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+mediamtx-manager-core = { path = "../core" }

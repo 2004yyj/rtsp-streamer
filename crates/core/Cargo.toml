@@ -1,0 +1,6 @@
+[package]
+name = "mediamtx-manager-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
