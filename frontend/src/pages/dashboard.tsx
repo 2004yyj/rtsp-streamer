@@ -2,7 +2,6 @@ import {
   Play,
   Square,
   RefreshCw,
-  Download,
   Circle,
   Activity,
 } from "lucide-react";
@@ -12,7 +11,6 @@ import {
   useStartProcess,
   useStopProcess,
   useRestartProcess,
-  useDownloadBinary,
 } from "../hooks/use-process";
 import { useActivePaths } from "../hooks/use-paths";
 
@@ -22,8 +20,6 @@ export default function DashboardPage() {
   const startProcess = useStartProcess();
   const stopProcess = useStopProcess();
   const restartProcess = useRestartProcess();
-  const downloadBinary = useDownloadBinary();
-
   const isRunning = status?.status === "running";
   const isStopped = status?.status === "stopped";
   const readyPaths = paths?.items.filter((p) => p.ready) ?? [];
@@ -55,14 +51,6 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => downloadBinary.mutate(undefined)}
-              disabled={downloadBinary.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              {downloadBinary.isPending ? "Downloading..." : "Download"}
-            </button>
             {isRunning ? (
               <>
                 <button
