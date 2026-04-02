@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Video, Radio, Tv, Copy, Check } from "lucide-react";
-import { useActivePaths } from "../hooks/use-paths";
+import { Video, Radio, Tv, Copy, Check, Trash2 } from "lucide-react";
+import { useActivePaths, useDeletePathConfig } from "../hooks/use-paths";
 import { useGlobalConfig } from "../hooks/use-config";
 import { WebRTCPlayer } from "../components/stream/webrtc-player";
 import { HLSPlayer } from "../components/stream/hls-player";
@@ -12,6 +12,7 @@ type PlayerMode = "webrtc" | "hls" | null;
 export default function StreamsPage() {
   const { data: paths, isLoading } = useActivePaths();
   const { data: config } = useGlobalConfig();
+  const deletePath = useDeletePathConfig();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [playerMode, setPlayerMode] = useState<PlayerMode>(null);
 
@@ -76,6 +77,11 @@ export default function StreamsPage() {
               isSelected={selectedPath === path.name}
               playerMode={selectedPath === path.name ? playerMode : null}
               onPlay={(mode) => handlePlay(path.name, mode)}
+              onDelete={() => {
+                if (confirm(`"${path.name}" 스트림을 삭제하시겠습니까?`)) {
+                  deletePath.mutate(path.name);
+                }
+              }}
               webrtcEnabled={config?.webrtc !== false}
               hlsEnabled={config?.hls !== false}
             />
@@ -94,6 +100,7 @@ interface StreamCardProps {
   isSelected: boolean;
   playerMode: PlayerMode;
   onPlay: (mode: PlayerMode) => void;
+  onDelete: () => void;
   webrtcEnabled: boolean;
   hlsEnabled: boolean;
 }
@@ -104,6 +111,7 @@ function StreamCard({
   isSelected,
   playerMode,
   onPlay,
+  onDelete,
   webrtcEnabled,
   hlsEnabled,
 }: StreamCardProps) {
@@ -129,39 +137,43 @@ function StreamCard({
           </div>
         </div>
 
-        {/* 재생 버튼 */}
-        {path.ready && (
-          <div className="flex gap-2">
-            {webrtcEnabled && (
-              <button
-                onClick={() => onPlay("webrtc")}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
-                  isSelected && playerMode === "webrtc"
-                    ? "bg-blue-600 text-white"
-                    : "border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                )}
-              >
-                <Tv className="w-4 h-4" />
-                WebRTC
-              </button>
-            )}
-            {hlsEnabled && (
-              <button
-                onClick={() => onPlay("hls")}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
-                  isSelected && playerMode === "hls"
-                    ? "bg-blue-600 text-white"
-                    : "border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                )}
-              >
-                <Video className="w-4 h-4" />
-                HLS
-              </button>
-            )}
-          </div>
-        )}
+        {/* 액션 버튼 */}
+        <div className="flex gap-2">
+          {path.ready && webrtcEnabled && (
+            <button
+              onClick={() => onPlay("webrtc")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
+                isSelected && playerMode === "webrtc"
+                  ? "bg-blue-600 text-white"
+                  : "border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+              )}
+            >
+              <Tv className="w-4 h-4" />
+              WebRTC
+            </button>
+          )}
+          {path.ready && hlsEnabled && (
+            <button
+              onClick={() => onPlay("hls")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors",
+                isSelected && playerMode === "hls"
+                  ? "bg-blue-600 text-white"
+                  : "border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+              )}
+            >
+              <Video className="w-4 h-4" />
+              HLS
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 rounded-md transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* 플레이어 */}
