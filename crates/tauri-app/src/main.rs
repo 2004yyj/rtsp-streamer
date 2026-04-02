@@ -50,14 +50,18 @@ fn main() {
             commands::config::patch_global_config,
             commands::config_file::read_config_file,
             commands::config_file::write_config_file,
+            commands::publish::start_publish,
+            commands::publish::stop_publish,
+            commands::publish::list_publishing,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let RunEvent::ExitRequested { .. } = event {
-                // 앱 종료 시 MediaMTX 프로세스도 정리
+                // 앱 종료 시 발행 프로세스 및 MediaMTX 프로세스 정리
                 let state = app_handle.state::<AppState>();
                 tauri::async_runtime::block_on(async {
+                    state.publish_manager.stop_all().await;
                     if let Err(e) = state.process_manager.stop().await {
                         tracing::warn!("Failed to stop MediaMTX on exit: {e}");
                     }

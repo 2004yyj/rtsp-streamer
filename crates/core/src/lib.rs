@@ -12,6 +12,7 @@ pub use models::path::{PathItem, PathList};
 pub use models::process::{BinaryInfo, ProcessStatus};
 pub use process::download::BinaryDownloader;
 pub use process::lifecycle::ProcessManager;
+pub use process::publish::PublishManager;
 
 use std::path::PathBuf;
 
@@ -39,6 +40,7 @@ pub struct AppState {
     pub process_manager: ProcessManager,
     pub config_file_manager: ConfigFileManager,
     pub downloader: BinaryDownloader,
+    pub publish_manager: PublishManager,
 }
 
 impl AppState {
@@ -53,11 +55,18 @@ impl AppState {
         let mut process_manager = ProcessManager::new(binary_path);
         process_manager.set_config_path(config.mediamtx_config_path.clone());
 
+        // RTSP URL을 API URL 기반으로 유추 (같은 호스트, 포트 8554)
+        let rtsp_base = config
+            .mediamtx_api_url
+            .replace("9997", "8554")
+            .replace("http://", "rtsp://");
+
         Self {
             api_client: MediaMtxClient::new(&config.mediamtx_api_url),
             process_manager,
             config_file_manager: ConfigFileManager::new(config.mediamtx_config_path),
             downloader: BinaryDownloader::new(config.mediamtx_binary_dir),
+            publish_manager: PublishManager::new(&rtsp_base),
         }
     }
 }
