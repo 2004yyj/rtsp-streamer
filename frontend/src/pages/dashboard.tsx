@@ -1,25 +1,11 @@
-import {
-  Play,
-  Square,
-  RefreshCw,
-  Circle,
-  Activity,
-} from "lucide-react";
+import { Circle, Activity } from "lucide-react";
 import { cn } from "../lib/utils";
-import {
-  useProcessStatus,
-  useStartProcess,
-  useStopProcess,
-  useRestartProcess,
-} from "../hooks/use-process";
+import { useProcessStatus } from "../hooks/use-process";
 import { useActivePaths } from "../hooks/use-paths";
 
 export default function DashboardPage() {
   const { data: status } = useProcessStatus();
   const { data: paths } = useActivePaths();
-  const startProcess = useStartProcess();
-  const stopProcess = useStopProcess();
-  const restartProcess = useRestartProcess();
   const isRunning = status?.status === "running";
   const isStopped = status?.status === "stopped";
   const readyPaths = paths?.items.filter((p) => p.ready) ?? [];
@@ -30,56 +16,23 @@ export default function DashboardPage() {
 
       {/* 프로세스 상태 카드 */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Circle
-              className={cn(
-                "w-3 h-3 fill-current",
-                isRunning
-                  ? "text-green-500"
-                  : isStopped
-                    ? "text-gray-400"
-                    : "text-yellow-500"
-              )}
-            />
-            <div>
-              <h3 className="font-medium">MediaMTX Server</h3>
-              <p className="text-sm text-gray-500">
-                {status?.status ?? "unknown"}
-                {status?.message && ` — ${status.message}`}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {isRunning ? (
-              <>
-                <button
-                  onClick={() => restartProcess.mutate()}
-                  disabled={restartProcess.isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Restart
-                </button>
-                <button
-                  onClick={() => stopProcess.mutate()}
-                  disabled={stopProcess.isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  <Square className="w-4 h-4" />
-                  Stop
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => startProcess.mutate()}
-                disabled={startProcess.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                <Play className="w-4 h-4" />
-                Start
-              </button>
+        <div className="flex items-center gap-3">
+          <Circle
+            className={cn(
+              "w-3 h-3 fill-current",
+              isRunning
+                ? "text-green-500"
+                : isStopped
+                  ? "text-gray-400"
+                  : "text-yellow-500"
             )}
+          />
+          <div>
+            <h3 className="font-medium">MediaMTX Server</h3>
+            <p className="text-sm text-gray-500">
+              {status?.status ?? "unknown"}
+              {status?.message && ` — ${status.message}`}
+            </p>
           </div>
         </div>
       </div>

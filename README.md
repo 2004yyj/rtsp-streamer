@@ -1,13 +1,6 @@
-# MediaMTX Manager
+# rtsp-streamer
 
-MediaMTX 미디어 서버를 관리하는 크로스 플랫폼 데스크탑/웹 애플리케이션.
-
-## 실행 모드
-
-- **데스크탑**: Tauri 앱 (macOS / Windows / Linux)
-- **웹**: 브라우저 접속 (서버/headless 환경)
-
-동일한 React 프론트엔드를 양쪽 모드에서 공유합니다.
+MediaMTX 미디어 서버를 관리하는 웹 애플리케이션.
 
 ## 프로젝트 구조
 
