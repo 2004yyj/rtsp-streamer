@@ -18,6 +18,7 @@ async fn main() {
     // 자동 다운로드 + API 활성화 + 자동 시작
     auto_setup(&state).await;
 
+    let shutdown_state = state.clone();
     let api_router = routes::create_router(state);
 
     // 프론트엔드 static 파일 서빙 (SPA fallback)
@@ -33,11 +34,25 @@ async fn main() {
     tracing::info!("Web server listening on http://{addr}");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal(shutdown_state))
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal(state: Arc<AppState>) {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to listen for ctrl+c");
+    tracing::info!("Shutting down...");
+    state.publish_manager.stop_all().await;
+    if let Err(e) = state.process_manager.stop().await {
+        tracing::warn!("Failed to stop MediaMTX: {e}");
+    }
+    tracing::info!("MediaMTX stopped");
 }
 
 async fn auto_setup(state: &AppState) {
-    // 바이너리 없으면 다운로드
     if state.downloader.installed_binary_path().is_none() {
         tracing::info!("MediaMTX binary not found, downloading...");
         match state.downloader.download(None).await {
@@ -51,10 +66,8 @@ async fn auto_setup(state: &AppState) {
         }
     }
 
-    // 설정 파일의 API 활성화 보장
     ensure_config(&state.config_file_manager).await;
 
-    // 프로세스 시작
     match state.process_manager.start().await {
         Ok(()) => tracing::info!("MediaMTX auto-started"),
         Err(e) => tracing::error!("Failed to auto-start MediaMTX: {e}"),
@@ -77,13 +90,9 @@ async fn ensure_config(cfm: &mediamtx_manager_core::ConfigFileManager) {
         }
         Err(_) => {
             let default_config = "\
-# MediaMTX configuration (managed by MediaMTX Manager)
+# MediaMTX configuration (managed by RTSP Streamer)
 api: yes
 apiAddress: :9997
-webrtcLocalUDPAddress: 0.0.0.0:8189
-webrtcAdditionalHosts: [127.0.0.1]
-webrtcICEServers2:
-  - url: stun:stun.l.google.com:19302
 ";
             if let Err(e) = cfm.write_string(default_config).await {
                 tracing::error!("Failed to create default config: {e}");
