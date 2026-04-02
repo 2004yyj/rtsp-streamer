@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Video, Radio, Copy, Check, Trash2, Upload, Square, FilePlus } from "lucide-react";
-import { useActivePaths, useDeletePathConfig } from "../hooks/use-paths";
+import { Video, Radio, Copy, Check, Upload, Square, FilePlus } from "lucide-react";
+import { useActivePaths } from "../hooks/use-paths";
 import { useGlobalConfig } from "../hooks/use-config";
 import { usePublishingList, useStartPublish, useStopPublish } from "../hooks/use-publish";
 import { HLSPlayer } from "../components/stream/hls-player";
@@ -11,7 +11,6 @@ export default function StreamsPage() {
   const { data: paths, isLoading } = useActivePaths();
   const { data: config } = useGlobalConfig();
   const { data: publishingList } = usePublishingList();
-  const deletePath = useDeletePathConfig();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [showPublishForm, setShowPublishForm] = useState(false);
 
@@ -79,11 +78,6 @@ export default function StreamsPage() {
               isPlaying={selectedPath === path.name}
               isPublishing={publishingList?.includes(path.name) ?? false}
               onPlay={() => handlePlay(path.name)}
-              onDelete={() => {
-                if (confirm(`"${path.name}" 스트림을 삭제하시겠습니까?`)) {
-                  deletePath.mutate(path.name);
-                }
-              }}
               hlsEnabled={config?.hls !== false}
               hlsSegmentCount={config?.hlsSegmentCount ?? 7}
             />
@@ -102,7 +96,6 @@ interface StreamCardProps {
   isPlaying: boolean;
   isPublishing: boolean;
   onPlay: () => void;
-  onDelete: () => void;
   hlsEnabled: boolean;
   hlsSegmentCount: number;
 }
@@ -113,7 +106,6 @@ function StreamCard({
   isPlaying,
   isPublishing,
   onPlay,
-  onDelete,
   hlsEnabled,
   hlsSegmentCount,
 }: StreamCardProps) {
@@ -173,12 +165,6 @@ function StreamCard({
               Stop Publish
             </button>
           )}
-          <button
-            onClick={onDelete}
-            className="inline-flex items-center p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 rounded-md transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
