@@ -2,6 +2,7 @@ pub mod config;
 pub mod config_file;
 pub mod paths;
 pub mod process;
+pub mod publish;
 
 use std::sync::Arc;
 
@@ -14,6 +15,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .merge(paths::routes())
         .merge(config::routes())
         .merge(config_file::routes())
+        .merge(publish::routes())
         .with_state(state);
 
     Router::new().nest("/api", api)
