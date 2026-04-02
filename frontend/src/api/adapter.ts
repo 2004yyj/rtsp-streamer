@@ -34,6 +34,11 @@ export interface ApiAdapter {
   // 설정 파일
   readConfigFile(): Promise<string>;
   writeConfigFile(content: string): Promise<void>;
+
+  // 파일 발행
+  startPublish(pathName: string, filePath: string, looped?: boolean): Promise<void>;
+  stopPublish(pathName: string): Promise<void>;
+  listPublishing(): Promise<string[]>;
 }
 
 function isTauri(): boolean {

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Video, Radio, Tv, Copy, Check, Trash2 } from "lucide-react";
+import { Video, Radio, Tv, Copy, Check, Trash2, Upload, Square, FilePlus } from "lucide-react";
 import { useActivePaths, useDeletePathConfig } from "../hooks/use-paths";
 import { useGlobalConfig } from "../hooks/use-config";
+import { usePublishingList, useStartPublish, useStopPublish } from "../hooks/use-publish";
 import { WebRTCPlayer } from "../components/stream/webrtc-player";
 import { HLSPlayer } from "../components/stream/hls-player";
 import { cn } from "../lib/utils";
@@ -12,9 +13,11 @@ type PlayerMode = "webrtc" | "hls" | null;
 export default function StreamsPage() {
   const { data: paths, isLoading } = useActivePaths();
   const { data: config } = useGlobalConfig();
+  const { data: publishingList } = usePublishingList();
   const deletePath = useDeletePathConfig();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [playerMode, setPlayerMode] = useState<PlayerMode>(null);
+  const [showPublishForm, setShowPublishForm] = useState(false);
 
   const readyPaths = paths?.items.filter((p) => p.ready) ?? [];
   const allPaths = paths?.items ?? [];
@@ -51,13 +54,26 @@ export default function StreamsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Streams</h2>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Radio className="w-4 h-4 text-green-500" />
-          <span>{readyPaths.length} ready</span>
-          <span className="text-gray-300 dark:text-gray-600">|</span>
-          <span>{allPaths.length} total</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowPublishForm(!showPublishForm)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700"
+          >
+            <FilePlus className="w-4 h-4" />
+            Publish File
+          </button>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Radio className="w-4 h-4 text-green-500" />
+            <span>{readyPaths.length} ready</span>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <span>{allPaths.length} total</span>
+          </div>
         </div>
       </div>
+
+      {showPublishForm && (
+        <PublishFileForm onClose={() => setShowPublishForm(false)} />
+      )}
 
       {isLoading ? (
         <p className="text-gray-500">Loading...</p>
@@ -76,6 +92,7 @@ export default function StreamsPage() {
               urls={getUrls(path.name)}
               isSelected={selectedPath === path.name}
               playerMode={selectedPath === path.name ? playerMode : null}
+              isPublishing={publishingList?.includes(path.name) ?? false}
               onPlay={(mode) => handlePlay(path.name, mode)}
               onDelete={() => {
                 if (confirm(`"${path.name}" 스트림을 삭제하시겠습니까?`)) {
@@ -99,6 +116,7 @@ interface StreamCardProps {
   urls: Record<string, string>;
   isSelected: boolean;
   playerMode: PlayerMode;
+  isPublishing: boolean;
   onPlay: (mode: PlayerMode) => void;
   onDelete: () => void;
   webrtcEnabled: boolean;
@@ -110,11 +128,14 @@ function StreamCard({
   urls,
   isSelected,
   playerMode,
+  isPublishing,
   onPlay,
   onDelete,
   webrtcEnabled,
   hlsEnabled,
 }: StreamCardProps) {
+  const stopPublish = useStopPublish();
+
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
       {/* 헤더 */}
@@ -127,7 +148,15 @@ function StreamCard({
             )}
           />
           <div>
-            <h3 className="font-mono font-medium">{path.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-mono font-medium">{path.name}</h3>
+              {isPublishing && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                  <Upload className="w-3 h-3" />
+                  Publishing
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500">
               {path.source?.type ?? "no source"}
               {path.readers && path.readers.length > 0 && (
@@ -165,6 +194,16 @@ function StreamCard({
             >
               <Video className="w-4 h-4" />
               HLS
+            </button>
+          )}
+          {isPublishing && (
+            <button
+              onClick={() => stopPublish.mutate(path.name)}
+              disabled={stopPublish.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              <Square className="w-3.5 h-3.5" />
+              Stop
             </button>
           )}
           <button
@@ -220,6 +259,126 @@ function UrlRow({ label, url }: { label: string; url: string }) {
       >
         {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
+    </div>
+  );
+}
+
+// ──────────────── Publish Form ────────────────
+
+function PublishFileForm({ onClose }: { onClose: () => void }) {
+  const startPublish = useStartPublish();
+  const [pathName, setPathName] = useState("");
+  const [filePath, setFilePath] = useState("");
+  const [looped, setLooped] = useState(true);
+
+  const handlePickFile = async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const result = await open({
+        multiple: false,
+        filters: [
+          { name: "Video", extensions: ["mp4", "mkv", "avi", "mov", "ts", "flv", "webm"] },
+        ],
+      });
+      if (result) {
+        setFilePath(result as string);
+        // 파일명에서 경로명 자동 추출
+        if (!pathName) {
+          const name = (result as string)
+            .split("/")
+            .pop()
+            ?.replace(/\.[^.]+$/, "")
+            ?.replace(/[^a-zA-Z0-9_-]/g, "_");
+          if (name) setPathName(name);
+        }
+      }
+    } catch {
+      // Tauri가 아닌 환경에서는 수동 입력
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!pathName.trim() || !filePath.trim()) return;
+    startPublish.mutate(
+      { pathName: pathName.trim(), filePath: filePath.trim(), looped },
+      { onSuccess: onClose }
+    );
+  };
+
+  return (
+    <div className="rounded-lg border border-green-200 dark:border-green-800 p-4 space-y-4 bg-green-50 dark:bg-green-950">
+      <h3 className="text-sm font-semibold">Publish Video File</h3>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Video File</label>
+        <div className="flex gap-2">
+          <input
+            value={filePath}
+            onChange={(e) => setFilePath(e.target.value)}
+            placeholder="/path/to/video.mp4"
+            className="flex-1 px-3 py-1.5 text-sm font-mono rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
+          />
+          <button
+            onClick={handlePickFile}
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Browse
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Stream Path</label>
+        <input
+          value={pathName}
+          onChange={(e) => setPathName(e.target.value)}
+          placeholder="my_stream"
+          className="w-full px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
+        />
+        <p className="text-xs text-gray-500 mt-1">이 이름으로 RTSP/HLS/WebRTC에서 접근 가능</p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={looped}
+          onClick={() => setLooped(!looped)}
+          className={cn(
+            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+            looped ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
+          )}
+        >
+          <span
+            className={cn(
+              "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+              looped ? "translate-x-4" : "translate-x-0"
+            )}
+          />
+        </button>
+        <span className="text-sm">반복 재생</span>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={startPublish.isPending || !pathName.trim() || !filePath.trim()}
+          className="px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+        >
+          {startPublish.isPending ? "Starting..." : "Start Publishing"}
+        </button>
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+        >
+          Cancel
+        </button>
+        {startPublish.isError && (
+          <span className="text-sm text-red-500">
+            {(startPublish.error as Error).message}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
