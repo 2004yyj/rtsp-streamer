@@ -1,22 +1,21 @@
 import { useEffect, useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 
 interface WebRTCPlayerProps {
-  url: string; // WHEP endpoint, e.g. http://localhost:8889/stream1/whep
+  url: string;
   className?: string;
 }
 
 export function WebRTCPlayer({ url, className }: WebRTCPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
-  const [status, setStatus] = useState<"connecting" | "playing" | "error">("connecting");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [status, setStatus] = useState<"connecting" | "playing" | "failed">("connecting");
 
   useEffect(() => {
     let cancelled = false;
 
     async function connect() {
       setStatus("connecting");
-      setErrorMsg("");
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -35,40 +34,28 @@ export function WebRTCPlayer({ url, className }: WebRTCPlayerProps) {
 
       pc.onconnectionstatechange = () => {
         if (cancelled) return;
-        if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-          setStatus("error");
-          setErrorMsg("연결이 끊어졌습니다");
-        }
+        if (pc.connectionState === "connected") setStatus("playing");
+        if (pc.connectionState === "failed") setStatus("failed");
       };
 
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-
-        // ICE gathering이 완료될 때까지 대기
-        const completeOffer = await waitForIceGathering(pc);
+        const sdp = await waitForIceGathering(pc);
 
         const resp = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/sdp" },
-          body: completeOffer,
+          body: sdp,
         });
 
-        if (!resp.ok) {
-          const body = await resp.text().catch(() => "");
-          throw new Error(`WHEP ${resp.status}: ${body}`);
-        }
+        if (!resp.ok) throw new Error(`${resp.status}`);
 
-        const answerSdp = await resp.text();
-        await pc.setRemoteDescription({
-          type: "answer",
-          sdp: answerSdp,
-        });
-      } catch (e) {
-        if (!cancelled) {
-          setStatus("error");
-          setErrorMsg(e instanceof Error ? e.message : "연결 실패");
-        }
+        await pc.setRemoteDescription(
+          new RTCSessionDescription({ type: "answer", sdp: await resp.text() })
+        );
+      } catch {
+        if (!cancelled) setStatus("failed");
       }
     }
 
@@ -76,15 +63,13 @@ export function WebRTCPlayer({ url, className }: WebRTCPlayerProps) {
 
     return () => {
       cancelled = true;
-      if (pcRef.current) {
-        pcRef.current.close();
-        pcRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      pcRef.current?.close();
+      pcRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [url]);
+
+  const playerUrl = url.replace(/\/whep$/, "/");
 
   return (
     <div className={className}>
@@ -100,9 +85,18 @@ export function WebRTCPlayer({ url, className }: WebRTCPlayerProps) {
           <span className="text-white text-sm">Connecting (WebRTC)...</span>
         </div>
       )}
-      {status === "error" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-md">
-          <span className="text-red-400 text-sm">{errorMsg}</span>
+      {status === "failed" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 rounded-md">
+          <p className="text-gray-400 text-sm">WebRTC 연결 실패</p>
+          <a
+            href={playerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <ExternalLink className="w-4 h-4" />
+            브라우저에서 열기
+          </a>
         </div>
       )}
     </div>
@@ -115,14 +109,16 @@ function waitForIceGathering(pc: RTCPeerConnection): Promise<string> {
       resolve(pc.localDescription!.sdp);
       return;
     }
-    pc.onicegatheringstatechange = () => {
+    const handler = () => {
       if (pc.iceGatheringState === "complete") {
+        pc.removeEventListener("icegatheringstatechange", handler);
         resolve(pc.localDescription!.sdp);
       }
     };
-    // 타임아웃: 5초 후 현재 상태로 진행
+    pc.addEventListener("icegatheringstatechange", handler);
     setTimeout(() => {
+      pc.removeEventListener("icegatheringstatechange", handler);
       resolve(pc.localDescription!.sdp);
-    }, 5000);
+    }, 3000);
   });
 }

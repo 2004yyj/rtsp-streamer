@@ -271,30 +271,9 @@ function PublishFileForm({ onClose }: { onClose: () => void }) {
   const [filePath, setFilePath] = useState("");
   const [looped, setLooped] = useState(true);
 
-  const handlePickFile = async () => {
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const result = await open({
-        multiple: false,
-        filters: [
-          { name: "Video", extensions: ["mp4", "mkv", "avi", "mov", "ts", "flv", "webm"] },
-        ],
-      });
-      if (result) {
-        setFilePath(result as string);
-        // 파일명에서 경로명 자동 추출
-        if (!pathName) {
-          const name = (result as string)
-            .split("/")
-            .pop()
-            ?.replace(/\.[^.]+$/, "")
-            ?.replace(/[^a-zA-Z0-9_-]/g, "_");
-          if (name) setPathName(name);
-        }
-      }
-    } catch {
-      // Tauri가 아닌 환경에서는 수동 입력
-    }
+  const handlePickFile = () => {
+    // 서버 측 파일 경로를 직접 입력 (웹 모드에서는 파일 다이얼로그 불가)
+    // filePath input에 직접 타이핑
   };
 
   const handleSubmit = () => {
@@ -320,7 +299,7 @@ function PublishFileForm({ onClose }: { onClose: () => void }) {
           />
           <button
             onClick={handlePickFile}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hidden"
           >
             Browse
           </button>

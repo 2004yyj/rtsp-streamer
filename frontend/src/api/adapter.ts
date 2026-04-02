@@ -41,23 +41,12 @@ export interface ApiAdapter {
   listPublishing(): Promise<string[]>;
 }
 
-function isTauri(): boolean {
-  return (
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
-  );
-}
-
 let adapter: ApiAdapter | null = null;
 
 export async function getApiAdapter(): Promise<ApiAdapter> {
   if (!adapter) {
-    if (isTauri()) {
-      const { TauriClient } = await import("./tauri-client");
-      adapter = new TauriClient();
-    } else {
-      const { HttpClient } = await import("./http-client");
-      adapter = new HttpClient();
-    }
+    const { HttpClient } = await import("./http-client");
+    adapter = new HttpClient();
   }
   return adapter;
 }
