@@ -87,8 +87,8 @@ impl ProcessManager {
         }
 
         let child = cmd
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|e| CoreError::Process(format!("Failed to start: {e}")))?;
 

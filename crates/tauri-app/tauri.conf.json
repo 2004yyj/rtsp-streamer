@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.mediamtx-manager.app",
   "build": {
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "../../frontend"
+    },
     "frontendDist": "../../frontend/dist",
     "devUrl": "http://localhost:5173"
   },
